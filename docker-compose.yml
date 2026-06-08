@@ -1,0 +1,58 @@
+# One command to run the whole stack locally:  docker compose up --build
+# Reads secrets/config from the .env file in this directory (copy .env.example).
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mealmind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mealmind}
+      POSTGRES_DB: ${POSTGRES_DB:-mealmind}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mealmind}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ai-service:
+    build: ./ai-service
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      AGENT_MODEL: ${AGENT_MODEL:-claude-sonnet-4-6}
+      FAST_MODEL: ${FAST_MODEL:-claude-haiku-4-5}
+    ports:
+      - "8000:8000"
+
+  api:
+    build: ./api
+    depends_on:
+      db:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-mealmind}
+      POSTGRES_USER: ${POSTGRES_USER:-mealmind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mealmind}
+      AI_SERVICE_URL: http://ai-service:8000
+      WEB_CORS_ORIGIN: http://localhost:5173
+    ports:
+      - "8080:8080"
+
+  web:
+    build:
+      context: ./web
+      args:
+        # The browser calls the API directly, so this must be a host-reachable URL.
+        VITE_API_BASE_URL: http://localhost:8080
+    depends_on:
+      - api
+    ports:
+      - "5173:80"
+
+volumes:
+  pgdata:

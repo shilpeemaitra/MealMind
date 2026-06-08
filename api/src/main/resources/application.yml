@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: mealmind-api
+
+  # JSON uses snake_case to match the Python AI service contract
+  # (daily_calorie_target, grocery_list, total_calories, ...).
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/mealmind}
+    username: ${POSTGRES_USER:mealmind}
+    password: ${POSTGRES_PASSWORD:mealmind}
+
+  jpa:
+    hibernate:
+      # Week 3: switch to validate/none + Flyway migrations. update is fine for dev.
+      ddl-auto: update
+    open-in-view: false
+
+  # Lets the app boot even if Postgres isn't up yet (handy in early week 1,
+  # since we have no entities to persist until Week 3).
+  sql:
+    init:
+      mode: never
+
+# Where the Python agent service lives. docker-compose overrides via AI_SERVICE_URL.
+ai:
+  service:
+    url: ${AI_SERVICE_URL:http://localhost:8000}
+
+# CORS origin for the React dev server.
+web:
+  cors:
+    origin: ${WEB_CORS_ORIGIN:http://localhost:5173}
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

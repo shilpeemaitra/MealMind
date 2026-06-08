@@ -1,0 +1,9 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+
+# Agent framework
+langgraph==0.2.60
+langchain-core==0.3.28
+langchain-anthropic==0.3.1

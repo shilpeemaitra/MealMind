@@ -1,0 +1,40 @@
+# ---- secrets / env ----
+.env
+*.env.local
+*.pem
+*.key
+
+# ---- Python (ai-service) ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# ---- Java / Spring Boot (api) ----
+api/target/
+api/build/
+api/.gradle/
+*.class
+*.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+!**/.mvn/wrapper/maven-wrapper.jar
+
+# ---- Node / React (web) ----
+web/node_modules/
+web/dist/
+web/.vite/
+npm-debug.log*
+yarn-error.log*
+
+# ---- IDE / OS ----
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# ---- Docker ----
+*.local
