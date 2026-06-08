@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { generatePlan } from "./api";
 import PantryEditor from "./PantryEditor";
 import WasteDashboard from "./WasteDashboard";
@@ -21,6 +21,20 @@ export default function App() {
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [online, setOnline] = useState(navigator.onLine);
+
+  // PWA: surface offline state so the user knows why a plan request might fail
+  // (generating a plan needs the network — it calls the agent + Claude).
+  useEffect(() => {
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -53,6 +67,9 @@ export default function App() {
 
   return (
     <main className="container">
+      {!online && (
+        <div className="offline-banner">📡 You're offline — connect to generate a plan.</div>
+      )}
       <header>
         <h1>MealMind 🍽️</h1>
         <p className="tagline">
@@ -100,7 +117,7 @@ export default function App() {
           <PantryEditor pantry={pantry} onChange={setPantry} />
         </div>
 
-        <button type="submit" disabled={loading} className="primary">
+        <button type="submit" disabled={loading || !online} className="primary">
           {loading ? "Agent is planning…" : "Generate plan"}
         </button>
       </form>

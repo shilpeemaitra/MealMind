@@ -15,5 +15,8 @@ RUN npm run build
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+# PWA note: the service worker (sw.js) must be served with no-cache so updates
+# propagate; nginx.conf handles the SPA fallback. HTTPS (required for PWA install)
+# is provided by the host (Vercel/Render) — not nginx here.
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

@@ -17,18 +17,34 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Prevent text auto-inflation on mobile landscape */
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   line-height: 1.5;
+  /* Respect notch / home-indicator safe areas on phones */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 .container {
   max-width: 840px;
   margin: 0 auto;
-  padding: 2.5rem 1.25rem 4rem;
+  /* Tighter padding on phones; roomier on desktop. Extra bottom space for the
+     sticky submit button on mobile. */
+  padding: 1.5rem 1rem 7rem;
+}
+
+@media (min-width: 700px) {
+  .container {
+    padding: 2.5rem 1.25rem 4rem;
+  }
 }
 
 h1 {
@@ -53,7 +69,13 @@ h1 {
 .grid2 {
   display: grid;
   gap: 0.85rem;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr; /* mobile-first: single column */
+}
+
+@media (min-width: 560px) {
+  .grid2 {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 label {
@@ -67,12 +89,15 @@ label {
 }
 
 input {
-  padding: 0.55rem 0.7rem;
+  padding: 0.7rem 0.8rem;
   border: 1px solid var(--line);
   border-radius: 8px;
-  font-size: 1rem;
+  /* 16px minimum prevents iOS Safari from zooming in on focus */
+  font-size: 16px;
   color: var(--ink);
   background: #fff;
+  /* Comfortable touch target height */
+  min-height: 44px;
 }
 
 button.primary {
@@ -80,11 +105,24 @@ button.primary {
   background: var(--accent);
   color: white;
   border: none;
-  padding: 0.85rem 1rem;
-  border-radius: 10px;
+  padding: 0.95rem 1rem;
+  border-radius: 12px;
   font-size: 1.05rem;
   font-weight: 700;
   cursor: pointer;
+  min-height: 50px;
+}
+
+/* On phones, pin the primary action to the bottom like a native app. */
+@media (max-width: 699px) {
+  button.primary {
+    position: sticky;
+    bottom: 0;
+    margin-top: 1rem;
+    /* Sit above the home indicator */
+    margin-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -8px 16px rgba(247, 245, 240, 0.9);
+  }
 }
 
 button.primary:disabled {
@@ -97,8 +135,10 @@ button.ghost {
   border: 1px solid var(--line);
   color: var(--muted);
   border-radius: 8px;
-  padding: 0.35rem 0.6rem;
+  padding: 0.5rem 0.7rem;
   cursor: pointer;
+  min-height: 40px;
+  min-width: 40px;
 }
 
 button.ghost.add {
@@ -242,6 +282,18 @@ button.ghost.add {
 .error {
   color: var(--red);
   font-weight: 600;
+}
+
+.offline-banner {
+  background: var(--amber-soft);
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 1rem;
 }
 .grocery {
   columns: 2;
