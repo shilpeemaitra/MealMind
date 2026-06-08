@@ -1,47 +1,51 @@
 import { useState } from "react";
+import { generatePlan } from "./api";
+import PantryEditor from "./PantryEditor";
+import WasteDashboard from "./WasteDashboard";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+const DEFAULT_PANTRY = [
+  { name: "rice", quantity: "500g", expires_on: "" },
+  { name: "spinach", quantity: "1 bag", expires_on: soonDate(2) },
+  { name: "eggs", quantity: "6", expires_on: "" },
+  { name: "oats", quantity: "", expires_on: "" },
+];
 
 export default function App() {
-  const [form, setForm] = useState({
-    goal: "lose weight",
-    daily_calorie_target: 1800,
-    dietary_pattern: "vegetarian",
-    allergies: "peanuts",
-    pantry: "rice, eggs, spinach, olive oil",
-    days: 3,
-  });
+  const [goal, setGoal] = useState("lose weight");
+  const [calories, setCalories] = useState(1800);
+  const [diet, setDiet] = useState("vegetarian");
+  const [allergies, setAllergies] = useState("peanuts");
+  const [days, setDays] = useState(3);
+  const [pantry, setPantry] = useState(DEFAULT_PANTRY);
+
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  function update(field, value) {
-    setForm((f) => ({ ...f, [field]: value }));
-  }
-
-  async function generate(e) {
+  async function onSubmit(e) {
     e.preventDefault();
     setLoading(true);
     setError("");
     setPlan(null);
     try {
-      const body = {
-        goal: form.goal,
-        daily_calorie_target: Number(form.daily_calorie_target),
-        dietary_pattern: form.dietary_pattern,
-        allergies: csv(form.allergies),
-        pantry: csv(form.pantry),
-        days: Number(form.days),
+      const request = {
+        goal,
+        daily_calorie_target: Number(calories),
+        dietary_pattern: diet,
+        allergies: csv(allergies),
+        pantry: pantry
+          .filter((p) => p.name.trim())
+          .map((p) => ({
+            name: p.name.trim(),
+            quantity: p.quantity?.trim() || "",
+            expires_on: p.expires_on || null,
+          })),
+        days: Number(days),
+        today: new Date().toISOString().slice(0, 10),
       };
-      const res = await fetch(`${API_BASE}/api/plan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error(`API returned ${res.status}`);
-      setPlan(await res.json());
+      setPlan(await generatePlan(request));
     } catch (err) {
-      setError(err.message || "Something went wrong");
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -49,61 +53,71 @@ export default function App() {
 
   return (
     <main className="container">
-      <h1>MealMind 🍽️</h1>
-      <p className="tagline">
-        Tell it your goals + what's in your kitchen. The agent plans your meals,
-        checks the constraints, and re-plans if needed.
-      </p>
+      <header>
+        <h1>MealMind 🍽️</h1>
+        <p className="tagline">
+          The meal planner that <strong>uses up what you already have</strong>.
+          Add your pantry, set your goals — the agent plans around what's expiring
+          to cut food waste and your grocery bill.
+        </p>
+      </header>
 
-      <form onSubmit={generate} className="card">
-        <label>
-          Goal
-          <input value={form.goal} onChange={(e) => update("goal", e.target.value)} />
-        </label>
-        <label>
-          Daily calorie target
-          <input
-            type="number"
-            value={form.daily_calorie_target}
-            onChange={(e) => update("daily_calorie_target", e.target.value)}
-          />
-        </label>
-        <label>
-          Dietary pattern
-          <input
-            value={form.dietary_pattern}
-            onChange={(e) => update("dietary_pattern", e.target.value)}
-          />
-        </label>
-        <label>
-          Allergies (comma-separated)
-          <input value={form.allergies} onChange={(e) => update("allergies", e.target.value)} />
-        </label>
-        <label>
-          Pantry (comma-separated)
-          <input value={form.pantry} onChange={(e) => update("pantry", e.target.value)} />
-        </label>
-        <label>
-          Days
-          <input
-            type="number"
-            min="1"
-            max="7"
-            value={form.days}
-            onChange={(e) => update("days", e.target.value)}
-          />
-        </label>
-        <button type="submit" disabled={loading}>
-          {loading ? "Planning…" : "Generate plan"}
+      <form onSubmit={onSubmit}>
+        <div className="card grid2">
+          <label>
+            Goal
+            <input value={goal} onChange={(e) => setGoal(e.target.value)} />
+          </label>
+          <label>
+            Daily calories
+            <input
+              type="number"
+              value={calories}
+              onChange={(e) => setCalories(e.target.value)}
+            />
+          </label>
+          <label>
+            Dietary pattern
+            <input value={diet} onChange={(e) => setDiet(e.target.value)} />
+          </label>
+          <label>
+            Allergies (comma-separated)
+            <input value={allergies} onChange={(e) => setAllergies(e.target.value)} />
+          </label>
+          <label>
+            Days
+            <input
+              type="number"
+              min="1"
+              max="7"
+              value={days}
+              onChange={(e) => setDays(e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="card">
+          <PantryEditor pantry={pantry} onChange={setPantry} />
+        </div>
+
+        <button type="submit" disabled={loading} className="primary">
+          {loading ? "Agent is planning…" : "Generate plan"}
         </button>
       </form>
 
       {error && <p className="error">⚠️ {error}</p>}
 
       {plan && (
-        <section>
+        <section className="results">
+          <WasteDashboard report={plan.waste_report} />
+
           {plan.notes && <p className="notes">{plan.notes}</p>}
-          <p className="meta">Agent re-planned {plan.revisions} time(s).</p>
+          {plan.revisions > 1 && (
+            <p className="meta">
+              🔁 The agent re-planned {plan.revisions - 1} time
+              {plan.revisions - 1 === 1 ? "" : "s"} to satisfy your constraints.
+            </p>
+          )}
 
           <div className="days">
             {plan.days.map((day) => (
@@ -113,8 +127,26 @@ export default function App() {
                 </h3>
                 {day.meals.map((meal, i) => (
                   <div key={i} className="meal">
-                    <strong>{meal.name}</strong> <span className="cals">{meal.calories} cal</span>
-                    <div className="ingredients">{meal.ingredients.join(", ")}</div>
+                    <div className="meal-head">
+                      <strong>{meal.name}</strong>
+                      <span className="cals">{meal.calories} cal</span>
+                    </div>
+                    <div className="ingredients">
+                      {meal.ingredients.map((ing, j) => (
+                        <span
+                          key={j}
+                          className={
+                            (meal.uses_pantry || []).some((p) =>
+                              ing.toLowerCase().includes(p.toLowerCase())
+                            )
+                              ? "ing from-pantry"
+                              : "ing"
+                          }
+                        >
+                          {ing}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -124,15 +156,19 @@ export default function App() {
           <div className="card">
             <h3>🛒 Grocery list</h3>
             {plan.grocery_list.length ? (
-              <ul>
+              <ul className="grocery">
                 {plan.grocery_list.map((item, i) => (
                   <li key={i}>{item}</li>
                 ))}
               </ul>
             ) : (
-              <p>You already have everything you need!</p>
+              <p>You already have everything you need! 🎉</p>
             )}
           </div>
+
+          <p className="legend">
+            <span className="ing from-pantry">highlighted</span> = used from your pantry
+          </p>
         </section>
       )}
     </main>
@@ -144,4 +180,10 @@ function csv(value) {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function soonDate(daysFromNow) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  return d.toISOString().slice(0, 10);
 }

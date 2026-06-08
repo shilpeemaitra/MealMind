@@ -1,0 +1,64 @@
+# Render Blueprint — provisions the two backend services + a Postgres database
+# in one shot. Deploy: push to GitHub, then in Render: New → Blueprint → pick this repo.
+#
+# The frontend (web/) deploys separately on Vercel (see vercel.json) — Vercel's
+# free tier is the best fit for a static React app.
+#
+# After the first deploy:
+#   1. Set ANTHROPIC_API_KEY on the ai-service (marked sync:false below).
+#   2. Copy the api service's URL into the web app's VITE_API_BASE_URL on Vercel.
+#   3. Set WEB_CORS_ORIGIN on the api service to your Vercel URL.
+
+# NOTE: No database yet. The API's JPA/datasource auto-config is intentionally
+# disabled (MealMindApplication) until the first @Entity lands in Week 3.
+# Provisioning a DB now would be a trap: Render's `connectionString` property is
+# a `postgres://user:pass@host/db` URL, but Spring's JDBC driver needs
+# `jdbc:postgresql://host/db` with credentials passed separately. When you add
+# persistence in Week 3:
+#   1. Uncomment the `databases:` block below.
+#   2. Re-enable JPA in MealMindApplication (remove the two excludes).
+#   3. Map the URL: set SPRING_DATASOURCE_URL from the DB's `host`/`port`/`database`
+#      as `jdbc:postgresql://$HOST:$PORT/$DB`, and user/password separately —
+#      do NOT feed the raw `connectionString` to Spring.
+#
+# databases:
+#   - name: mealmind-db
+#     plan: free
+#     databaseName: mealmind
+#     user: mealmind
+
+services:
+  # ---- Python AI service (FastAPI + LangGraph) ----
+  - type: web
+    name: mealmind-ai
+    runtime: docker
+    plan: free
+    dockerfilePath: ./ai-service/Dockerfile
+    dockerContext: ./ai-service
+    healthCheckPath: /health
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false            # set this manually in the Render dashboard
+      - key: AGENT_MODEL
+        value: claude-sonnet-4-6
+      - key: FAST_MODEL
+        value: claude-haiku-4-5
+
+  # ---- Spring Boot API ----
+  - type: web
+    name: mealmind-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: ./api
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: AI_SERVICE_URL
+        fromService:
+          name: mealmind-ai
+          type: web
+          property: hostport     # injects the AI service's internal host:port
+      - key: WEB_CORS_ORIGIN
+        sync: false            # set to your Vercel URL after the frontend deploys
+      # DB env vars (SPRING_DATASOURCE_URL, POSTGRES_*) are added in Week 3 when
+      # persistence is enabled — see the note at the top of this file.
